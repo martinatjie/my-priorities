@@ -181,11 +181,45 @@ public class ConsoleApp
             return;
         }
 
-        list.Items.Add(new Item(Guid.NewGuid(), text));
-        list.RankedItemIds = null;
-        Save();
-        Console.WriteLine("Item added. Ranking invalidated — run Prioritize again.");
+        var newItem = new Item(Guid.NewGuid(), text);
+        list.Items.Add(newItem);
+
+        if (list.RankedItemIds is null)
+        {
+            Save();
+            Console.WriteLine("Item added.");
+            Console.WriteLine();
+            return;
+        }
+
+        if (list.RankedItemIds.Count == 0)
+        {
+            list.RankedItemIds = [newItem.Id];
+            Save();
+            Console.WriteLine("Item added.");
+            Console.WriteLine();
+            return;
+        }
+
+        Console.WriteLine("Placing new item in existing ranking...");
+        Console.WriteLine("For each pair, pick the item with HIGHER priority.");
         Console.WriteLine();
+
+        var itemsById = list.Items.ToDictionary(item => item.Id);
+        var existingRanking = list.RankedItemIds
+            .Where(itemsById.ContainsKey)
+            .Select(id => itemsById[id])
+            .ToList();
+
+        list.RankedItemIds = _prioritizationService.InsertIntoRanking(
+            existingRanking,
+            newItem,
+            PickHigherPriority);
+
+        Save();
+        Console.WriteLine();
+        Console.WriteLine("Item added and placed in ranking.");
+        ViewRanking(list);
     }
 
     private void EditItem(PriorityList list)
@@ -220,9 +254,8 @@ public class ConsoleApp
         }
 
         list.Items[choice.Value - 1] = item with { Text = text };
-        list.RankedItemIds = null;
         Save();
-        Console.WriteLine("Item updated. Ranking invalidated — run Prioritize again.");
+        Console.WriteLine("Item updated.");
         Console.WriteLine();
     }
 
@@ -249,9 +282,16 @@ public class ConsoleApp
 
         var removed = list.Items[choice.Value - 1];
         list.Items.RemoveAt(choice.Value - 1);
-        list.RankedItemIds = null;
+
+        if (list.RankedItemIds is not null)
+        {
+            list.RankedItemIds.Remove(removed.Id);
+            if (list.RankedItemIds.Count == 0)
+                list.RankedItemIds = null;
+        }
+
         Save();
-        Console.WriteLine($"Deleted \"{removed.Text}\". Ranking invalidated — run Prioritize again.");
+        Console.WriteLine($"Deleted \"{removed.Text}\".");
         Console.WriteLine();
     }
 

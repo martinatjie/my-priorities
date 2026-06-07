@@ -43,7 +43,15 @@ On startup the app prints the data file path in use.
 | 6 | View ranking |
 | 7 | Back |
 
-During prioritization you pick the higher-priority item each time. Adding, editing, or deleting items invalidates the current ranking until you prioritize again.
+During prioritization you pick the higher-priority item each time.
+
+**Incremental ranking** (when a list is already prioritized):
+
+- **Add** — you are prompted immediately to place the new item via binary-search comparisons; existing order is preserved
+- **Edit** — text changes only; ranking is unchanged
+- **Delete** — item is removed from the list and ranking without re-prompting
+
+Use **Prioritize** (option 5) for a full re-rank of all items, or when a list has never been prioritized.
 
 ## Data storage
 
