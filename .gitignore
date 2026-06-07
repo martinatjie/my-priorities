@@ -1,0 +1,37 @@
+# Build output
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+out/
+
+# IDE / editor
+.vs/
+.vscode/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.idea/
+
+# .NET
+project.lock.json
+project.fragment.lock.json
+artifacts/
+*.nuget.props
+*.nuget.targets
+
+# User-specific local overrides (never commit)
+appsettings.*.local.json
+secrets.json
+*.secrets.json
+
+# Prioritization data — may contain personal / sensitive list content
+prioritization-data.json
+**/prioritization-data.json
+*.prioritization-data.json
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
