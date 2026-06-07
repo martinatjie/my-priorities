@@ -26,6 +26,16 @@ public class PrioritizationService
         return ranking.Select(item => item.Id).ToList();
     }
 
+    public List<Guid> InsertIntoRanking(
+        IReadOnlyList<Item> existingRanking,
+        Item newItem,
+        Func<Item, Item, Item> pickHigherPriority)
+    {
+        var ranking = existingRanking.ToList();
+        InsertByComparison(ranking, newItem, pickHigherPriority);
+        return ranking.Select(item => item.Id).ToList();
+    }
+
     private static void InsertByComparison(
         List<Item> ranking,
         Item newItem,
