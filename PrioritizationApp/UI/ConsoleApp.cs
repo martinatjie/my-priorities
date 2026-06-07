@@ -26,7 +26,8 @@ public class ConsoleApp
         {
             Console.WriteLine("Main Menu");
             Console.WriteLine("  1. Select / create list");
-            Console.WriteLine("  2. Exit");
+            Console.WriteLine("  2. Settings");
+            Console.WriteLine("  3. Exit");
             Console.Write("> ");
 
             var choice = ReadIntOrNull();
@@ -38,7 +39,42 @@ public class ConsoleApp
                     SelectOrCreateList();
                     break;
                 case 2:
+                    RunSettingsMenu();
+                    break;
+                case 3:
                     Console.WriteLine("Goodbye.");
+                    return;
+                default:
+                    Console.WriteLine("Invalid choice. Try again.");
+                    Console.WriteLine();
+                    break;
+            }
+        }
+    }
+
+    private void RunSettingsMenu()
+    {
+        while (true)
+        {
+            var autoLabel = _data.Settings.AutoPrioritizeOnAdd ? "ON" : "OFF";
+            Console.WriteLine("Settings");
+            Console.WriteLine($"  1. Auto prioritize on add: {autoLabel}");
+            Console.WriteLine("  2. Back");
+            Console.Write("> ");
+
+            var choice = ReadIntOrNull();
+            Console.WriteLine();
+
+            switch (choice)
+            {
+                case 1:
+                    _data.Settings.AutoPrioritizeOnAdd = !_data.Settings.AutoPrioritizeOnAdd;
+                    Save();
+                    Console.WriteLine(
+                        $"Auto prioritize on add is now {(_data.Settings.AutoPrioritizeOnAdd ? "ON" : "OFF")}.");
+                    Console.WriteLine();
+                    break;
+                case 2:
                     return;
                 default:
                     Console.WriteLine("Invalid choice. Try again.");
@@ -184,7 +220,7 @@ public class ConsoleApp
         var newItem = new Item(Guid.NewGuid(), text);
         list.Items.Add(newItem);
 
-        if (list.RankedItemIds is null)
+        if (!_data.Settings.AutoPrioritizeOnAdd || list.RankedItemIds is null)
         {
             Save();
             Console.WriteLine("Item added.");
@@ -201,24 +237,27 @@ public class ConsoleApp
             return;
         }
 
+        PrintSessionHints();
         Console.WriteLine("Placing new item in existing ranking...");
-        Console.WriteLine("For each pair, pick the item with HIGHER priority.");
         Console.WriteLine();
 
-        var itemsById = list.Items.ToDictionary(item => item.Id);
-        var existingRanking = list.RankedItemIds
-            .Where(itemsById.ContainsKey)
-            .Select(id => itemsById[id])
-            .ToList();
-
-        list.RankedItemIds = _prioritizationService.InsertIntoRanking(
+        var existingRanking = RankingHelper.GetRankedItems(list).ToList();
+        var result = _prioritizationService.InsertIntoRanking(
             existingRanking,
             newItem,
-            PickHigherPriority);
+            PickComparisonOutcome);
 
+        list.RankedItemIds = result.RankedItemIds;
         Save();
+
         Console.WriteLine();
-        Console.WriteLine("Item added and placed in ranking.");
+        if (result.Cancelled)
+            Console.WriteLine("Prioritization cancelled. Progress saved.");
+        else if (result.Skipped)
+            Console.WriteLine("Skipped — item left unprioritized.");
+        else
+            Console.WriteLine("Item added and placed in ranking.");
+
         ViewRanking(list);
     }
 
@@ -313,41 +352,124 @@ public class ConsoleApp
             return;
         }
 
+        if (RankingHelper.IsFullyPrioritized(list))
+        {
+            Console.WriteLine("This list is already fully prioritized.");
+            Console.WriteLine("Running Prioritize again will re-rank ALL items from scratch.");
+            Console.Write("Continue? (y/n) ");
+            var confirm = Console.ReadLine()?.Trim().ToLowerInvariant();
+            Console.WriteLine();
+
+            if (confirm is not "y" and not "yes")
+            {
+                Console.WriteLine("Prioritization cancelled.");
+                Console.WriteLine();
+                return;
+            }
+
+            RunFullPrioritizationSession(list);
+            return;
+        }
+
+        var unprioritized = RankingHelper.GetUnprioritizedItems(list);
+        if (unprioritized.Count == 0)
+        {
+            Console.WriteLine("All items are already prioritized.");
+            Console.WriteLine();
+            return;
+        }
+
+        if (list.RankedItemIds is null)
+        {
+            RunFullPrioritizationSession(list);
+            return;
+        }
+
+        RunPartialPrioritizationSession(list, unprioritized);
+    }
+
+    private void RunFullPrioritizationSession(PriorityList list)
+    {
+        PrintSessionHints();
         Console.WriteLine("Prioritization session started.");
         Console.WriteLine("For each pair, pick the item with HIGHER priority.");
         Console.WriteLine();
 
-        var rankedIds = _prioritizationService.RankItems(
+        var result = _prioritizationService.RankItems(
             list.Items,
-            (a, b) => PickHigherPriority(a, b),
+            PickComparisonOutcome,
             (current, total) => Console.WriteLine($"Ranking item {current} of {total}..."));
 
-        list.RankedItemIds = rankedIds;
+        list.RankedItemIds = result.RankedItemIds;
         Save();
         Console.WriteLine();
-        Console.WriteLine("Prioritization complete.");
+
+        if (result.Cancelled)
+            Console.WriteLine("Prioritization cancelled. Progress saved.");
+        else
+            Console.WriteLine("Prioritization complete.");
+
         ViewRanking(list);
     }
 
-    private static Item PickHigherPriority(Item a, Item b)
+    private void RunPartialPrioritizationSession(PriorityList list, IReadOnlyList<Item> unprioritized)
+    {
+        PrintSessionHints();
+        Console.WriteLine("Prioritization session started.");
+        Console.WriteLine($"Placing {unprioritized.Count} unprioritized item(s) into existing ranking.");
+        Console.WriteLine();
+
+        var existingRanking = RankingHelper.GetRankedItems(list).ToList();
+        var result = _prioritizationService.RankUnprioritizedItems(
+            existingRanking,
+            unprioritized,
+            PickComparisonOutcome,
+            (current, total) => Console.WriteLine($"Ranking item {current} of {total}..."));
+
+        list.RankedItemIds = result.RankedItemIds;
+        Save();
+        Console.WriteLine();
+
+        if (result.Cancelled)
+            Console.WriteLine("Prioritization cancelled. Progress saved.");
+        else
+            Console.WriteLine("Prioritization complete.");
+
+        ViewRanking(list);
+    }
+
+    private static void PrintSessionHints()
+    {
+        Console.WriteLine("Enter = skip current item   |   x = cancel (saves progress so far)");
+        Console.WriteLine();
+    }
+
+    private static ComparisonOutcome PickComparisonOutcome(Item a, Item b)
     {
         while (true)
         {
-            Console.WriteLine($"Comparing:");
+            Console.WriteLine("Comparing:");
             Console.WriteLine($"  1. {a.Text}");
             Console.WriteLine($"  2. {b.Text}");
-            Console.WriteLine("Which is HIGHER priority?");
+            Console.WriteLine("Which is HIGHER priority? (Enter = skip item, x = cancel)");
             Console.Write("> ");
 
-            var choice = ReadIntOrNull();
+            var input = Console.ReadLine()?.Trim();
             Console.WriteLine();
 
-            if (choice == 1)
-                return a;
-            if (choice == 2)
-                return b;
+            if (string.IsNullOrEmpty(input))
+                return ComparisonOutcome.Skip;
 
-            Console.WriteLine("Please enter 1 or 2.");
+            if (input.Equals("x", StringComparison.OrdinalIgnoreCase))
+                return ComparisonOutcome.Cancel;
+
+            if (input == "1")
+                return ComparisonOutcome.PreferFirst;
+
+            if (input == "2")
+                return ComparisonOutcome.PreferSecond;
+
+            Console.WriteLine("Please enter 1, 2, Enter to skip, or x to cancel.");
         }
     }
 
@@ -355,31 +477,36 @@ public class ConsoleApp
     {
         if (list.RankedItemIds is null)
         {
-            Console.WriteLine("List changed — run Prioritize again.");
+            Console.WriteLine("No ranking yet — run Prioritize.");
             Console.WriteLine();
             return;
         }
 
-        if (list.RankedItemIds.Count == 0)
+        var rankedItems = RankingHelper.GetRankedItems(list);
+        var unprioritized = RankingHelper.GetUnprioritizedItems(list);
+
+        if (rankedItems.Count == 0 && unprioritized.Count == 0)
         {
             Console.WriteLine("No ranking available.");
             Console.WriteLine();
             return;
         }
 
-        var itemsById = list.Items.ToDictionary(item => item.Id);
-        Console.WriteLine("Ranking (highest to lowest priority):");
-
-        for (var i = 0; i < list.RankedItemIds.Count; i++)
+        if (rankedItems.Count > 0)
         {
-            var id = list.RankedItemIds[i];
-            if (itemsById.TryGetValue(id, out var item))
-                Console.WriteLine($"  {i + 1}. {item.Text}");
-            else
-                Console.WriteLine($"  {i + 1}. (missing item)");
+            Console.WriteLine("Ranking (highest to lowest priority):");
+            for (var i = 0; i < rankedItems.Count; i++)
+                Console.WriteLine($"  {i + 1}. {rankedItems[i].Text}");
+            Console.WriteLine();
         }
 
-        Console.WriteLine();
+        if (unprioritized.Count > 0)
+        {
+            Console.WriteLine("Unprioritized items:");
+            foreach (var item in unprioritized)
+                Console.WriteLine($"  - {item.Text}");
+            Console.WriteLine();
+        }
     }
 
     private void Save() => _repository.Save(_data);

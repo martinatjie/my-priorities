@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="PrioritizationApp.Tests/PrioritizationApp.Tests.csproj" />
+  <Project Path="PrioritizationApp/PrioritizationApp.csproj" />
+</Solution>

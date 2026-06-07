@@ -4,42 +4,78 @@ namespace PrioritizationApp.Services;
 
 public class PrioritizationService
 {
-    public List<Guid> RankItems(
+    public PrioritizationSessionResult RankItems(
         IReadOnlyList<Item> items,
-        Func<Item, Item, Item> pickHigherPriority,
+        Func<Item, Item, ComparisonOutcome> pick,
         Action<int, int>? onProgress = null)
     {
         if (items.Count == 0)
-            return [];
+            return new PrioritizationSessionResult([], false);
 
         if (items.Count == 1)
-            return [items[0].Id];
+            return new PrioritizationSessionResult([items[0].Id], false);
 
         var ranking = new List<Item> { items[0] };
 
         for (var i = 1; i < items.Count; i++)
         {
             onProgress?.Invoke(i + 1, items.Count);
-            InsertByComparison(ranking, items[i], pickHigherPriority);
+            var insertResult = InsertByComparison(ranking, items[i], pick);
+
+            if (insertResult.Cancelled)
+                return new PrioritizationSessionResult(
+                    ranking.Select(item => item.Id).ToList(),
+                    true);
         }
 
-        return ranking.Select(item => item.Id).ToList();
+        return new PrioritizationSessionResult(
+            ranking.Select(item => item.Id).ToList(),
+            false);
     }
 
-    public List<Guid> InsertIntoRanking(
+    public PrioritizationSessionResult RankUnprioritizedItems(
         IReadOnlyList<Item> existingRanking,
-        Item newItem,
-        Func<Item, Item, Item> pickHigherPriority)
+        IReadOnlyList<Item> itemsToInsert,
+        Func<Item, Item, ComparisonOutcome> pick,
+        Action<int, int>? onProgress = null)
     {
         var ranking = existingRanking.ToList();
-        InsertByComparison(ranking, newItem, pickHigherPriority);
-        return ranking.Select(item => item.Id).ToList();
+
+        for (var i = 0; i < itemsToInsert.Count; i++)
+        {
+            onProgress?.Invoke(i + 1, itemsToInsert.Count);
+            var insertResult = InsertByComparison(ranking, itemsToInsert[i], pick);
+
+            if (insertResult.Cancelled)
+                return new PrioritizationSessionResult(
+                    ranking.Select(item => item.Id).ToList(),
+                    true);
+
+            // Skipped items are left out of ranking; continue to next
+        }
+
+        return new PrioritizationSessionResult(
+            ranking.Select(item => item.Id).ToList(),
+            false);
     }
 
-    private static void InsertByComparison(
+    public InsertResult InsertIntoRanking(
+        IReadOnlyList<Item> existingRanking,
+        Item newItem,
+        Func<Item, Item, ComparisonOutcome> pick)
+    {
+        var ranking = existingRanking.ToList();
+        var insertResult = InsertByComparison(ranking, newItem, pick);
+        return new InsertResult(
+            ranking.Select(item => item.Id).ToList(),
+            insertResult.Skipped,
+            insertResult.Cancelled);
+    }
+
+    private static InsertResult InsertByComparison(
         List<Item> ranking,
         Item newItem,
-        Func<Item, Item, Item> pickHigherPriority)
+        Func<Item, Item, ComparisonOutcome> pick)
     {
         var low = 0;
         var high = ranking.Count;
@@ -48,14 +84,33 @@ public class PrioritizationService
         {
             var mid = low + (high - low) / 2;
             var compared = ranking[mid];
-            var winner = pickHigherPriority(newItem, compared);
+            var outcome = pick(newItem, compared);
 
-            if (winner.Id == newItem.Id)
-                high = mid;
-            else
-                low = mid + 1;
+            switch (outcome)
+            {
+                case ComparisonOutcome.PreferFirst:
+                    high = mid;
+                    break;
+                case ComparisonOutcome.PreferSecond:
+                    low = mid + 1;
+                    break;
+                case ComparisonOutcome.Skip:
+                    return new InsertResult(
+                        ranking.Select(item => item.Id).ToList(),
+                        Skipped: true,
+                        Cancelled: false);
+                case ComparisonOutcome.Cancel:
+                    return new InsertResult(
+                        ranking.Select(item => item.Id).ToList(),
+                        Skipped: false,
+                        Cancelled: true);
+            }
         }
 
         ranking.Insert(low, newItem);
+        return new InsertResult(
+            ranking.Select(item => item.Id).ToList(),
+            Skipped: false,
+            Cancelled: false);
     }
 }
