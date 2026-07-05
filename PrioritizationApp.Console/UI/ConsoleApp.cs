@@ -242,10 +242,10 @@ public class ConsoleApp
         Console.WriteLine();
 
         var existingRanking = RankingHelper.GetRankedItems(list).ToList();
-        var result = _prioritizationService.InsertIntoRanking(
+        var result = _prioritizationService.InsertIntoRankingAsync(
             existingRanking,
             newItem,
-            PickComparisonOutcome);
+            (a, b) => ValueTask.FromResult(PickComparisonOutcome(a, b))).GetAwaiter().GetResult();
 
         list.RankedItemIds = result.RankedItemIds;
         Save();
@@ -395,10 +395,10 @@ public class ConsoleApp
         Console.WriteLine("For each pair, pick the item with HIGHER priority.");
         Console.WriteLine();
 
-        var result = _prioritizationService.RankItems(
+        var result = _prioritizationService.RankItemsAsync(
             list.Items,
-            PickComparisonOutcome,
-            (current, total) => Console.WriteLine($"Ranking item {current} of {total}..."));
+            (a, b) => ValueTask.FromResult(PickComparisonOutcome(a, b)),
+            (current, total) => Console.WriteLine($"Ranking item {current} of {total}...")).GetAwaiter().GetResult();
 
         list.RankedItemIds = result.RankedItemIds;
         Save();
@@ -420,11 +420,11 @@ public class ConsoleApp
         Console.WriteLine();
 
         var existingRanking = RankingHelper.GetRankedItems(list).ToList();
-        var result = _prioritizationService.RankUnprioritizedItems(
+        var result = _prioritizationService.RankUnprioritizedItemsAsync(
             existingRanking,
             unprioritized,
-            PickComparisonOutcome,
-            (current, total) => Console.WriteLine($"Ranking item {current} of {total}..."));
+            (a, b) => ValueTask.FromResult(PickComparisonOutcome(a, b)),
+            (current, total) => Console.WriteLine($"Ranking item {current} of {total}...")).GetAwaiter().GetResult();
 
         list.RankedItemIds = result.RankedItemIds;
         Save();

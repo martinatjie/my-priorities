@@ -18,12 +18,23 @@ A simple .NET 8 console app for ranking items through pairwise comparisons. Crea
 
 ## Run
 
+### Console app
+
 ```bash
 cd PrioritizationApp.Console
 dotnet run
 ```
 
-On startup the app prints the data file path in use.
+### Web app (local)
+
+```bash
+cd PrioritizationApp.Web
+dotnet run
+```
+
+Open the URL shown in the terminal (HTTPS). In Development, auth is open unless you configure Google OAuth and an email allowlist.
+
+On startup the console app prints the data file path in use. The web app stores data in SQLite under `Storage:DataDirectory` (`.` locally, `/data` in Docker).
 
 ## Usage
 
@@ -126,10 +137,49 @@ dotnet-stryker --config-file stryker-config.json
 ## Project layout
 
 ```
-PrioritizationApp.Core/     Models, services, configuration, JSON repository
-PrioritizationApp.Console/  Console host and menus
-PrioritizationApp.Tests/    xUnit tests for Core
+PrioritizationApp.Core/       Models, services, configuration, JSON repository
+PrioritizationApp.Console/    Console host and menus
+PrioritizationApp.Web/        Blazor web app (mobile-first UI)
+PrioritizationApp.Tests/      xUnit tests for Core
 ```
+
+## Server setup (production web app)
+
+GitHub Actions **builds and deploys** the Docker image on push to `main`. It does **not** set up the server from scratch. Complete this checklist once before the first deploy.
+
+### One-time on the server
+
+| Step | Command / action |
+|------|------------------|
+| DNS | `A` record: `priorities.wiredwithsprinkles.com` → your server IP |
+| Docker volume | `docker volume create priorities-data` |
+| Swarm + Traefik | Reuse existing stack (same as WhatsForDinner) |
+| GHCR login | `docker login ghcr.io` (deploy user; CI also logs in via `GHCR_PAT` on deploy) |
+
+### One-time in GitHub repo secrets
+
+| Secret | Purpose |
+|--------|---------|
+| `GHCR_PAT` | Pull images on the server during deploy |
+| `SERVER_IP`, `SERVER_USER`, `SERVER_SSH_KEY` | SSH deploy |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google OAuth |
+| `ALLOWED_EMAIL_1`, `ALLOWED_EMAIL_2` | Email allowlist |
+
+### One-time in Google Cloud Console
+
+Add authorized redirect URI:
+
+```
+https://priorities.wiredwithsprinkles.com/signin-google
+```
+
+### What CI/CD does on push to `main`
+
+- Build and push `ghcr.io/martinatjie/my-priorities/prioritization-app:<tag>`
+- Copy `docker-compose-stack.yml` to the server
+- `docker stack deploy` for stack `prioritiesstack`
+
+Update the image tag in both `docker-compose-stack.yml` and `.github/workflows/deploy.yml` when releasing a new version.
 
 ## License
 

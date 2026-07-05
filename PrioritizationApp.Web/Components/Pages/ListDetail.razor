@@ -1,0 +1,226 @@
+@page "/list/{ListId:guid}"
+@rendermode InteractiveServer
+@inject PriorityAppService AppService
+@inject NavigationManager Navigation
+
+<PageTitle>@(_list?.Name ?? "List")</PageTitle>
+
+@if (_list is null)
+{
+    <p>List not found.</p>
+    <a href="/">Back to lists</a>
+}
+else
+{
+    <div class="page-header">
+        <div>
+            <a href="/" class="back-link">← Lists</a>
+            <h1 class="page-title">@_list.Name</h1>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(_message))
+    {
+        <div class="alert @(_messageIsWarning ? "alert-warning" : "alert-info")">@_message</div>
+    }
+
+    @if (_showRerankConfirm)
+    {
+        <div class="card-panel warning-panel">
+            <p>This list is already fully prioritized. Running Prioritize again will re-rank <strong>all</strong> items from scratch.</p>
+            <div class="button-row">
+                <button class="btn btn-danger" @onclick="ConfirmPrioritize">Continue</button>
+                <button class="btn btn-secondary" @onclick="() => _showRerankConfirm = false">Cancel</button>
+            </div>
+        </div>
+    }
+
+    <section class="card-panel">
+        <h2>Items</h2>
+        @if (_list.Items.Count == 0)
+        {
+            <p class="text-muted">No items yet.</p>
+        }
+        else
+        {
+            <ul class="item-list">
+                @foreach (var item in _list.Items)
+                {
+                    <li>
+                        <span>@item.Text</span>
+                        <button class="btn btn-sm btn-outline-secondary" @onclick="() => BeginEdit(item)">Edit</button>
+                        <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteItem(item.Id)">Delete</button>
+                    </li>
+                }
+            </ul>
+        }
+
+        <div class="form-row">
+            <input class="form-control" @bind="_newItemText" placeholder="New item" />
+            <button class="btn btn-primary" @onclick="AddItem" disabled="@string.IsNullOrWhiteSpace(_newItemText)">Add</button>
+        </div>
+    </section>
+
+    <section class="button-row">
+        <button class="btn btn-primary btn-lg" @onclick="StartPrioritize">Prioritize</button>
+        <button class="btn btn-secondary" @onclick="() => _showRanking = !_showRanking">View ranking</button>
+    </section>
+
+    @if (_showRanking)
+    {
+        <section class="card-panel">
+            <h2>Ranking</h2>
+            @if (_list.RankedItemIds is null)
+            {
+                <p class="text-muted">No ranking yet — run Prioritize.</p>
+            }
+            else
+            {
+                var ranked = RankingHelper.GetRankedItems(_list);
+                var unprioritized = RankingHelper.GetUnprioritizedItems(_list);
+
+                @if (ranked.Count > 0)
+                {
+                    <ol>
+                        @foreach (var item in ranked)
+                        {
+                            <li>@item.Text</li>
+                        }
+                    </ol>
+                }
+
+                @if (unprioritized.Count > 0)
+                {
+                    <h3>Unprioritized</h3>
+                    <ul>
+                        @foreach (var item in unprioritized)
+                        {
+                            <li>@item.Text</li>
+                        }
+                    </ul>
+                }
+            }
+        </section>
+    }
+
+    @if (_editingItemId is Guid editId)
+    {
+        <section class="card-panel">
+            <h2>Edit item</h2>
+            <div class="form-row">
+                <input class="form-control" @bind="_editText" />
+                <button class="btn btn-primary" @onclick="SaveEdit">Save</button>
+                <button class="btn btn-secondary" @onclick="CancelEdit">Cancel</button>
+            </div>
+        </section>
+    }
+}
+
+@code {
+    [Parameter] public Guid ListId { get; set; }
+
+    private AppData _data = new();
+    private PriorityList? _list;
+    private string _newItemText = "";
+    private string? _message;
+    private bool _messageIsWarning;
+    private bool _showRanking;
+    private bool _showRerankConfirm;
+    private Guid? _editingItemId;
+    private string _editText = "";
+
+    protected override void OnInitialized()
+    {
+        Reload();
+    }
+
+    protected override void OnParametersSet() => Reload();
+
+    private void Reload()
+    {
+        _data = AppService.Load();
+        _list = AppService.GetList(_data, ListId);
+    }
+
+    private async Task AddItem()
+    {
+        if (_list is null || string.IsNullOrWhiteSpace(_newItemText))
+            return;
+
+        await AppService.AddItemAsync(_data, _list, _newItemText);
+        _newItemText = "";
+        _message = "Item added.";
+        _messageIsWarning = false;
+        Reload();
+    }
+
+    private void BeginEdit(Item item)
+    {
+        _editingItemId = item.Id;
+        _editText = item.Text;
+    }
+
+    private void SaveEdit()
+    {
+        if (_list is null || _editingItemId is null || string.IsNullOrWhiteSpace(_editText))
+            return;
+
+        AppService.UpdateItem(_data, _list, _editingItemId.Value, _editText);
+        _editingItemId = null;
+        _message = "Item updated.";
+        _messageIsWarning = false;
+        Reload();
+    }
+
+    private void CancelEdit()
+    {
+        _editingItemId = null;
+        _editText = "";
+    }
+
+    private void DeleteItem(Guid itemId)
+    {
+        if (_list is null)
+            return;
+
+        AppService.DeleteItem(_data, _list, itemId);
+        _message = "Item deleted.";
+        _messageIsWarning = false;
+        Reload();
+    }
+
+    private void StartPrioritize()
+    {
+        if (_list is null)
+            return;
+
+        if (RankingHelper.IsFullyPrioritized(_list))
+        {
+            _showRerankConfirm = true;
+            return;
+        }
+
+        _ = RunPrioritizeAsync(false);
+    }
+
+    private void ConfirmPrioritize() => _ = RunPrioritizeAsync(true);
+
+    private async Task RunPrioritizeAsync(bool confirmFullRerank)
+    {
+        if (_list is null)
+            return;
+
+        _showRerankConfirm = false;
+        var result = await AppService.PrioritizeAsync(_data, _list, confirmFullRerank);
+        if (result is null)
+        {
+            _showRerankConfirm = false;
+            return;
+        }
+
+        _message = result;
+        _messageIsWarning = result.Contains("cancelled", StringComparison.OrdinalIgnoreCase);
+        Reload();
+        _showRanking = true;
+    }
+}

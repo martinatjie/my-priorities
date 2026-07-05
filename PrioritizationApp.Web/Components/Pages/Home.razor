@@ -1,0 +1,64 @@
+﻿@page "/"
+@rendermode InteractiveServer
+@inject PriorityAppService AppService
+
+<PageTitle>My Priorities</PageTitle>
+
+<h1 class="page-title">My Priorities</h1>
+
+@if (!string.IsNullOrWhiteSpace(_message))
+{
+    <div class="alert alert-info">@_message</div>
+}
+
+<section class="card-panel">
+    <h2>Your lists</h2>
+    @if (_data.Lists.Count == 0)
+    {
+        <p class="text-muted">No lists yet. Create one below.</p>
+    }
+    else
+    {
+        <ul class="list-links">
+            @foreach (var list in _data.Lists)
+            {
+                <li>
+                    <a href="/list/@list.Id">@list.Name</a>
+                    <span class="text-muted">(@list.Items.Count items)</span>
+                </li>
+            }
+        </ul>
+    }
+</section>
+
+<section class="card-panel">
+    <h2>Create list</h2>
+    <div class="form-row">
+        <input class="form-control" @bind="_newListName" placeholder="List name" />
+        <button class="btn btn-primary" @onclick="CreateList" disabled="@string.IsNullOrWhiteSpace(_newListName)">
+            Create
+        </button>
+    </div>
+</section>
+
+@code {
+    private AppData _data = new();
+    private string _newListName = "";
+    private string? _message;
+
+    protected override void OnInitialized()
+    {
+        _data = AppService.Load();
+    }
+
+    private void CreateList()
+    {
+        if (string.IsNullOrWhiteSpace(_newListName))
+            return;
+
+        var list = AppService.CreateList(_data, _newListName);
+        _newListName = "";
+        _message = $"Created \"{list.Name}\".";
+        _data = AppService.Load();
+    }
+}

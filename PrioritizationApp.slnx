@@ -2,4 +2,5 @@
   <Project Path="PrioritizationApp.Console/PrioritizationApp.Console.csproj" />
   <Project Path="PrioritizationApp.Core/PrioritizationApp.Core.csproj" />
   <Project Path="PrioritizationApp.Tests/PrioritizationApp.Tests.csproj" />
+  <Project Path="PrioritizationApp.Web/PrioritizationApp.Web.csproj" />
 </Solution>

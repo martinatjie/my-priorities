@@ -1,0 +1,54 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push image
+        run: |
+          IMAGE=ghcr.io/martinatjie/my-priorities/prioritization-app:2026.07.05.1
+          docker build -t $IMAGE .
+          docker push $IMAGE
+
+      - name: Copy stack file to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          source: docker-compose-stack.yml
+          target: /home/deploy/docker-compose-stack
+
+      - name: Deploy stack
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          GHCR_PAT: ${{ secrets.GHCR_PAT }}
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          envs: GHCR_PAT
+          script: |
+            echo "$GHCR_PAT" | docker login ghcr.io -u martinatjie --password-stdin
+            docker stack deploy -c /home/deploy/docker-compose-stack/docker-compose-stack.yml prioritiesstack --with-registry-auth
+            docker service update --force prioritiesstack_my-priorities

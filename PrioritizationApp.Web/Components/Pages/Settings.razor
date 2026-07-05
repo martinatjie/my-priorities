@@ -1,0 +1,34 @@
+@page "/settings"
+@rendermode InteractiveServer
+@inject PriorityAppService AppService
+
+<PageTitle>Settings</PageTitle>
+
+<h1 class="page-title">Settings</h1>
+
+<section class="card-panel">
+    <p>
+        Auto prioritize on add:
+        <strong>@(_data.Settings.AutoPrioritizeOnAdd ? "ON" : "OFF")</strong>
+    </p>
+    <p class="text-muted">
+        When ON, adding an item to a ranked list prompts you to place it immediately.
+        When OFF, new items stay unprioritized until you run Prioritize.
+    </p>
+    <button class="btn btn-primary" @onclick="Toggle">
+        Toggle auto prioritize on add
+    </button>
+</section>
+
+@code {
+    private AppData _data = new();
+
+    protected override void OnInitialized() => _data = AppService.Load();
+
+    private void Toggle()
+    {
+        AppService.ToggleAutoPrioritize(_data);
+        AppService.Save(_data);
+        _data = AppService.Load();
+    }
+}
