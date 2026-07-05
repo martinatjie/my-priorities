@@ -19,7 +19,7 @@ A simple .NET 8 console app for ranking items through pairwise comparisons. Crea
 ## Run
 
 ```bash
-cd PrioritizationApp
+cd PrioritizationApp.Console
 dotnet run
 ```
 
@@ -89,19 +89,19 @@ List data is **not** committed to git. By default, `dotnet run` uses Development
 
 Settings are loaded in this order (later wins):
 
-1. `PrioritizationApp/appsettings.json`
-2. `PrioritizationApp/appsettings.Development.json` (when `DOTNET_ENVIRONMENT=Development`)
+1. `PrioritizationApp.Console/appsettings.json`
+2. `PrioritizationApp.Console/appsettings.Development.json` (when `DOTNET_ENVIRONMENT=Development`)
 3. User secrets (machine-local, not in the repo)
 4. Environment variable `PRIORITIZATION_DATA__FILEPATH`
 
 **User secrets example**
 
 ```bash
-cd PrioritizationApp
+cd PrioritizationApp.Console
 dotnet user-secrets set "Data:FilePath" "%LOCALAPPDATA%\PrioritizationApp\prioritization-data.json"
 ```
 
-See `PrioritizationApp/user-secrets.example.json` for the key format.
+See `PrioritizationApp.Console/user-secrets.example.json` for the key format.
 
 **Environment variable example**
 
@@ -113,19 +113,22 @@ dotnet run
 ## Tests
 
 ```bash
-dotnet test
+dotnet test PrioritizationApp.sln
+```
+
+### Mutation tests (Stryker)
+
+```bash
+dotnet tool install -g dotnet-stryker
+dotnet-stryker --config-file stryker-config.json
 ```
 
 ## Project layout
 
 ```
-PrioritizationApp/
-  Models/           Item, PriorityList, AppData, AppSettings
-  Services/         JSON persistence, prioritization logic, ranking helpers
-  UI/               Console menus
-  Configuration/    Data path resolution
-PrioritizationApp.Tests/
-  Services/         xUnit tests for ranking and prioritization logic
+PrioritizationApp.Core/     Models, services, configuration, JSON repository
+PrioritizationApp.Console/  Console host and menus
+PrioritizationApp.Tests/    xUnit tests for Core
 ```
 
 ## License
