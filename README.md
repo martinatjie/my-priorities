@@ -151,9 +151,9 @@ GitHub Actions **builds and deploys** the Docker image on push to `main`. It doe
 
 | Step | Command / action |
 |------|------------------|
-| DNS | `A` record: `priorities.wiredwithsprinkles.com` → your server IP |
+| DNS | `A` record: `priorities.example.com` → your server IP |
 | Docker volume | `docker volume create priorities-data` |
-| Swarm + Traefik | Reuse existing stack (same as WhatsForDinner) |
+| Swarm + Traefik | Configure reverse proxy and overlay network (e.g. existing Traefik on Docker Swarm) |
 | GHCR login | `docker login ghcr.io` (deploy user; CI also logs in via `GHCR_PAT` on deploy) |
 
 ### One-time in GitHub repo secrets
@@ -170,12 +170,12 @@ GitHub Actions **builds and deploys** the Docker image on push to `main`. It doe
 Add authorized redirect URI:
 
 ```
-https://priorities.wiredwithsprinkles.com/signin-google
+https://priorities.example.com/signin-google
 ```
 
 ### What CI/CD does on push to `main`
 
-- Build and push `ghcr.io/martinatjie/my-priorities/prioritization-app:<tag>`
+- Build and push `ghcr.io/<your-github-user>/my-priorities/prioritization-app:<tag>`
 - Copy `docker-compose-stack.yml` to the server
 - `docker stack deploy` for stack `prioritiesstack`
 
