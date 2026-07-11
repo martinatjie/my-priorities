@@ -34,7 +34,8 @@
 <section class="card-panel">
     <h2>Create list</h2>
     <div class="form-row">
-        <input class="form-control" @bind="_newListName" placeholder="List name" />
+        <input class="form-control" @bind="_newListName" @bind:event="oninput"
+               placeholder="List name" @onkeydown="CreateOnEnter" />
         <button class="btn btn-primary" @onclick="CreateList" disabled="@string.IsNullOrWhiteSpace(_newListName)">
             Create
         </button>
@@ -49,6 +50,12 @@
     protected override void OnInitialized()
     {
         _data = AppService.Load();
+    }
+
+    private void CreateOnEnter(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+            CreateList();
     }
 
     private void CreateList()
