@@ -156,30 +156,54 @@ GitHub Actions **builds and deploys** the Docker image on push to `main`. It doe
 | Swarm + Traefik | Configure reverse proxy and overlay network (e.g. existing Traefik on Docker Swarm) |
 | GHCR login | `docker login ghcr.io` (deploy user; CI also logs in via `GHCR_PAT` on deploy) |
 
-### One-time in GitHub repo secrets
+### One-time in GitHub (Actions)
 
-| Secret | Purpose |
-|--------|---------|
-| `GHCR_PAT` | Pull images on the server during deploy |
-| `SERVER_IP`, `SERVER_USER`, `SERVER_SSH_KEY` | SSH deploy |
-| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google OAuth |
-| `ALLOWED_EMAIL_1`, `ALLOWED_EMAIL_2` | Email allowlist |
+GitHub distinguishes **secrets** (sensitive) from **variables** (non-sensitive config).  
+Go to: **Repository → Settings → Secrets and variables → Actions**
+
+#### Secrets
+
+| Name | Example / notes |
+|------|-----------------|
+| `GHCR_PAT` | Personal access token with `read:packages` — server uses this to pull images |
+| `SERVER_IP` | Your server IP address |
+| `SERVER_USER` | SSH user (e.g. `deploy`) |
+| `SERVER_SSH_KEY` | Private SSH key for deploy user |
+| `GOOGLE_CLIENT_ID` | Google OAuth client ID |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret |
+| `ALLOWED_EMAIL_1` | First allowed sign-in email |
+| `ALLOWED_EMAIL_2` | Second allowed sign-in email (optional; leave empty if unused) |
+
+`GITHUB_TOKEN` is provided automatically by GitHub Actions for pushing images to GHCR.
+
+#### Variables
+
+| Name | Example / notes |
+|------|-----------------|
+| `IMAGE_TAG` | Docker image tag to build and deploy (e.g. `2026.07.11.1`) — bump when releasing |
+| `DEPLOY_HOST` | Public hostname for this app (e.g. `priorities.example.com`) |
+| `SSL_HOST` | Root domain for Traefik STS header (e.g. `example.com`) |
+| `TRAEFIK_CERT_RESOLVER` | Traefik cert resolver name on your server (default in workflow: `mytlschallenge`) |
+
+These variables are substituted into `docker-compose-stack.yml` on the server during deploy.
 
 ### One-time in Google Cloud Console
 
-Add authorized redirect URI:
+Add authorized redirect URI (use your `DEPLOY_HOST` value):
 
 ```
-https://priorities.example.com/signin-google
+https://<DEPLOY_HOST>/signin-google
 ```
+
+Example: `https://priorities.example.com/signin-google`
 
 ### What CI/CD does on push to `main`
 
-- Build and push `ghcr.io/<your-github-user>/my-priorities/prioritization-app:<tag>`
+- Build and push `ghcr.io/<repository-owner>/my-priorities/prioritization-app:<IMAGE_TAG>`
 - Copy `docker-compose-stack.yml` to the server
-- `docker stack deploy` for stack `prioritiesstack`
+- Export secrets/variables and run `docker stack deploy` for stack `prioritiesstack`
 
-Update the image tag in both `docker-compose-stack.yml` and `.github/workflows/deploy.yml` when releasing a new version.
+Bump `IMAGE_TAG` in GitHub **Variables** when releasing a new version.
 
 ## License
 

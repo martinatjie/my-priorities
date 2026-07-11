@@ -2,15 +2,15 @@ version: "3.9"
 
 services:
   my-priorities:
-    image: ghcr.io/martinatjie/my-priorities/prioritization-app:2026.07.05.1
+    image: ${IMAGE}
     networks:
       - traefik_swarm_nw
     labels:
       - traefik.enable=true
-      - traefik.http.routers.priorities-traefik-router.rule=Host(`priorities.wiredwithsprinkles.com`)
+      - traefik.http.routers.priorities-traefik-router.rule=Host(`${DEPLOY_HOST}`)
       - traefik.http.routers.priorities-traefik-router.entrypoints=web,websecure
       - traefik.http.routers.priorities-traefik-router.tls=true
-      - traefik.http.routers.priorities-traefik-router.tls.certresolver=mytlschallenge
+      - traefik.http.routers.priorities-traefik-router.tls.certresolver=${TRAEFIK_CERT_RESOLVER}
       - traefik.http.routers.priorities-traefik-router.service=priorities-traefik-service
       - traefik.http.services.priorities-traefik-service.loadbalancer.server.port=80
       - traefik.http.middlewares.priorities-traefik-middleware.headers.SSLRedirect=true
@@ -18,7 +18,7 @@ services:
       - traefik.http.middlewares.priorities-traefik-middleware.headers.browserXSSFilter=true
       - traefik.http.middlewares.priorities-traefik-middleware.headers.contentTypeNosniff=true
       - traefik.http.middlewares.priorities-traefik-middleware.headers.forceSTSHeader=true
-      - traefik.http.middlewares.priorities-traefik-middleware.headers.SSLHost=wiredwithsprinkles.com
+      - traefik.http.middlewares.priorities-traefik-middleware.headers.SSLHost=${SSL_HOST}
       - traefik.http.middlewares.priorities-traefik-middleware.headers.STSIncludeSubdomains=true
       - traefik.http.middlewares.priorities-traefik-middleware.headers.STSPreload=true
       - traefik.http.routers.priorities-traefik-router.middlewares=priorities-traefik-middleware@docker
