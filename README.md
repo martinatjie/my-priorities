@@ -207,6 +207,30 @@ Example: `https://priorities.example.com/signin-google`
 
 Bump `IMAGE_TAG` in GitHub **Variables** when releasing a new version.
 
+### Troubleshooting: connection timeout (Traefik ingress)
+
+If the app container is running (`1/1` replicas, logs show "Application started") but the site times out in the browser (`ERR_CONNECTION_TIMED_OUT`), check whether the host is listening on 80/443:
+
+```bash
+ss -tlnp | grep -E ':80|:443'
+```
+
+If that returns nothing while other published ports work (e.g. n8n on `5678`), Swarm ingress for Traefik may be stuck. Restart the Traefik service (adjust the service name to match your server):
+
+```bash
+docker service update --force traefik_stack_traefik
+```
+
+After ~30 seconds, 80/443 should appear in `ss` output. Verify routing inside the overlay network:
+
+```bash
+docker run --rm --network traefik_swarm_nw curlimages/curl:8.5.0 -sI \
+  -H "Host: <your-DEPLOY_HOST>" \
+  http://tasks.traefik_stack_traefik:80
+```
+
+A `308` redirect to `https://...` means Traefik routing is working. This is a Traefik/ingress issue, not the app stack — redeploying the app alone will not fix it.
+
 ## License
 
 Personal project — use and modify as you like.
