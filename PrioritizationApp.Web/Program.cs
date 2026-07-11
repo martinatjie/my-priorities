@@ -26,6 +26,8 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
+builder.Services.AddCascadingAuthenticationState();
+
 builder.Services.Configure<StorageOptions>(
     builder.Configuration.GetSection(StorageOptions.SectionName));
 
