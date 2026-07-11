@@ -30,6 +30,9 @@ secrets.json
 prioritization-data.json
 **/prioritization-data.json
 *.prioritization-data.json
+*.db
+*.db-shm
+*.db-wal
 
 # OS
 Thumbs.db

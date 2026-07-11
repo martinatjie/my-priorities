@@ -18,12 +18,23 @@ A simple .NET 8 console app for ranking items through pairwise comparisons. Crea
 
 ## Run
 
+### Console app
+
 ```bash
-cd PrioritizationApp
+cd PrioritizationApp.Console
 dotnet run
 ```
 
-On startup the app prints the data file path in use.
+### Web app (local)
+
+```bash
+cd PrioritizationApp.Web
+dotnet run
+```
+
+Open the URL shown in the terminal (HTTPS). In Development, auth is open unless you configure Google OAuth and an email allowlist.
+
+On startup the console app prints the data file path in use. The web app stores data in SQLite under `Storage:DataDirectory` (`.` locally, `/data` in Docker).
 
 ## Usage
 
@@ -89,19 +100,19 @@ List data is **not** committed to git. By default, `dotnet run` uses Development
 
 Settings are loaded in this order (later wins):
 
-1. `PrioritizationApp/appsettings.json`
-2. `PrioritizationApp/appsettings.Development.json` (when `DOTNET_ENVIRONMENT=Development`)
+1. `PrioritizationApp.Console/appsettings.json`
+2. `PrioritizationApp.Console/appsettings.Development.json` (when `DOTNET_ENVIRONMENT=Development`)
 3. User secrets (machine-local, not in the repo)
 4. Environment variable `PRIORITIZATION_DATA__FILEPATH`
 
 **User secrets example**
 
 ```bash
-cd PrioritizationApp
+cd PrioritizationApp.Console
 dotnet user-secrets set "Data:FilePath" "%LOCALAPPDATA%\PrioritizationApp\prioritization-data.json"
 ```
 
-See `PrioritizationApp/user-secrets.example.json` for the key format.
+See `PrioritizationApp.Console/user-secrets.example.json` for the key format.
 
 **Environment variable example**
 
@@ -113,20 +124,88 @@ dotnet run
 ## Tests
 
 ```bash
-dotnet test
+dotnet test PrioritizationApp.sln
+```
+
+### Mutation tests (Stryker)
+
+```bash
+dotnet tool install -g dotnet-stryker
+dotnet-stryker --config-file stryker-config.json
 ```
 
 ## Project layout
 
 ```
-PrioritizationApp/
-  Models/           Item, PriorityList, AppData, AppSettings
-  Services/         JSON persistence, prioritization logic, ranking helpers
-  UI/               Console menus
-  Configuration/    Data path resolution
-PrioritizationApp.Tests/
-  Services/         xUnit tests for ranking and prioritization logic
+PrioritizationApp.Core/       Models, services, configuration, JSON repository
+PrioritizationApp.Console/    Console host and menus
+PrioritizationApp.Web/        Blazor web app (mobile-first UI)
+PrioritizationApp.Tests/      xUnit tests for Core
 ```
+
+## Server setup (production web app)
+
+GitHub Actions **builds and deploys** the Docker image on push to `main`. It does **not** set up the server from scratch. Complete this checklist once before the first deploy.
+
+### One-time on the server
+
+| Step | Command / action |
+|------|------------------|
+| DNS | `A` record: `priorities.example.com` → your server IP |
+| Docker volume | `docker volume create priorities-data` |
+| Swarm + Traefik | Configure reverse proxy and overlay network (e.g. existing Traefik on Docker Swarm) |
+| GHCR login | `docker login ghcr.io` (deploy user; CI also logs in via `GHCR_PAT` on deploy) |
+
+### One-time in GitHub (Actions)
+
+GitHub distinguishes **secrets** (sensitive, hidden) from **variables** (non-sensitive config).  
+Go to: **Repository → Settings → Secrets and variables → Actions**
+
+Hostnames are stored as **secrets** so your live site URL is not visible in the repo or in GitHub Variables. Forks use their own `DEPLOY_HOST` / `SSL_HOST` values.
+
+#### Secrets
+
+| Name | Example / notes |
+|------|-----------------|
+| `GHCR_PAT` | Personal access token with `read:packages` — server uses this to pull images |
+| `SERVER_IP` | Your server IP address |
+| `SERVER_USER` | SSH user (e.g. `deploy`) |
+| `SERVER_SSH_KEY` | Private SSH key for deploy user |
+| `DEPLOY_HOST` | Public hostname for this app (e.g. `priorities.example.com`) |
+| `SSL_HOST` | Root domain for Traefik STS header (e.g. `example.com`) |
+| `GOOGLE_CLIENT_ID` | Google OAuth client ID |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret |
+| `ALLOWED_EMAIL_1` | First allowed sign-in email |
+| `ALLOWED_EMAIL_2` | Second allowed sign-in email (optional; leave empty if unused) |
+
+`GITHUB_TOKEN` is provided automatically by GitHub Actions for pushing images to GHCR.
+
+#### Variables
+
+| Name | Example / notes |
+|------|-----------------|
+| `IMAGE_TAG` | Docker image tag to build and deploy (e.g. `2026.07.11.1`) — bump when releasing |
+| `TRAEFIK_CERT_RESOLVER` | Traefik cert resolver name on your server (default in workflow: `mytlschallenge`) |
+
+Secrets and variables are substituted into `docker-compose-stack.yml` on the server during deploy.
+
+### One-time in Google Cloud Console
+
+Add authorized redirect URI (use your `DEPLOY_HOST` value):
+
+```
+https://<DEPLOY_HOST>/signin-google
+```
+
+Example: `https://priorities.example.com/signin-google`
+
+### What CI/CD does on push to `main`
+
+- Build and push `ghcr.io/<repository-owner>/my-priorities/prioritization-app:<IMAGE_TAG>`
+- Copy `docker-compose-stack.yml` to the server
+- Export secrets/variables and run `docker stack deploy` for stack `prioritiesstack`
+
+Bump `IMAGE_TAG` in GitHub **Variables** when releasing a new version.
 
 ## License
 

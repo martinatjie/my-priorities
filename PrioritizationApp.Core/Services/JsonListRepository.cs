@@ -3,7 +3,7 @@ using PrioritizationApp.Models;
 
 namespace PrioritizationApp.Services;
 
-public class JsonListRepository
+public class JsonListRepository : IAppRepository
 {
     private readonly string _path;
     private readonly JsonSerializerOptions _options = new()
