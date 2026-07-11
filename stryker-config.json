@@ -1,0 +1,19 @@
+{
+  "stryker-config": {
+    "project": "PrioritizationApp.Core/PrioritizationApp.Core.csproj",
+    "test-projects": [
+      "PrioritizationApp.Tests/PrioritizationApp.Tests.csproj"
+    ],
+    "reporters": [
+      "html",
+      "progress",
+      "cleartext"
+    ],
+    "mutation-level": "Standard",
+    "thresholds": {
+      "high": 80,
+      "low": 60,
+      "break": 50
+    }
+  }
+}

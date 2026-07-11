@@ -1,0 +1,51 @@
+@using PrioritizationApp.Models
+@inject ComparisonSessionHost ComparisonSession
+@implements IDisposable
+
+@if (ComparisonSession.IsActive && ComparisonSession.FirstItem is not null && ComparisonSession.SecondItem is not null)
+{
+    <div class="comparison-backdrop">
+        <div class="comparison-modal" role="dialog" aria-modal="true" aria-labelledby="comparison-title">
+            <p id="comparison-title" class="comparison-prompt">
+                Which item is <strong>higher priority</strong>? Tap your choice below.
+            </p>
+            @if (!string.IsNullOrWhiteSpace(ComparisonSession.ProgressText))
+            {
+                <p class="comparison-progress">@ComparisonSession.ProgressText</p>
+            }
+
+            <div class="comparison-options">
+                <button type="button" class="comparison-card" @onclick="() => Choose(ComparisonOutcome.PreferFirst)">
+                    <span class="comparison-label">Option 1</span>
+                    <span class="comparison-text">@ComparisonSession.FirstItem.Text</span>
+                </button>
+                <button type="button" class="comparison-card" @onclick="() => Choose(ComparisonOutcome.PreferSecond)">
+                    <span class="comparison-label">Option 2</span>
+                    <span class="comparison-text">@ComparisonSession.SecondItem.Text</span>
+                </button>
+            </div>
+
+            <div class="comparison-actions">
+                <button type="button" class="btn btn-outline-light" @onclick="() => Choose(ComparisonOutcome.Skip)">
+                    Skip item
+                </button>
+                <button type="button" class="btn btn-danger" @onclick="() => Choose(ComparisonOutcome.Cancel)">
+                    Cancel
+                </button>
+            </div>
+
+            <p class="comparison-hint">Skip leaves this item unprioritized. Cancel saves progress so far.</p>
+        </div>
+    </div>
+}
+
+@code {
+    protected override void OnInitialized() =>
+        ComparisonSession.StateChanged += HandleStateChanged;
+
+    private void Choose(ComparisonOutcome outcome) => ComparisonSession.Choose(outcome);
+
+    private void HandleStateChanged() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose() => ComparisonSession.StateChanged -= HandleStateChanged;
+}
