@@ -1,5 +1,6 @@
 using Bunit;
 using PrioritizationApp.Models;
+using PrioritizationApp.Web.Components;
 using PrioritizationApp.Web.Components.Pages;
 
 namespace PrioritizationApp.Web.Tests.Components;
@@ -125,6 +126,39 @@ public class ListDetailTests : ComponentTestBase
             var ranked = cut.FindAll("ol.ranked-list li");
             Assert.Single(ranked);
             Assert.Contains("Kiwi", ranked[0].TextContent);
+        });
+    }
+
+    [Fact]
+    public void Reprioritize_UpdatesRankedList_AfterComparisonsComplete()
+    {
+        var apple = Item("Apple");
+        var banana = Item("Banana");
+        var list = new PriorityList
+        {
+            Id = Guid.NewGuid(),
+            Name = "Fruit",
+            Items = [apple, banana],
+            RankedItemIds = [apple.Id, banana.Id]
+        };
+        var data = new AppData { Lists = [list] };
+        RegisterServices(data);
+        var modal = Render<ComparisonModal>();
+        var cut = Render<ListDetail>(p => p.Add(c => c.ListId, list.Id));
+
+        cut.FindAll("button").Single(b => b.TextContent.Trim() == "Prioritize").Click();
+        cut.WaitForAssertion(() => Assert.Contains("re-rank", cut.Markup, StringComparison.OrdinalIgnoreCase));
+        cut.FindAll("button").Single(b => b.TextContent.Trim() == "Continue").Click();
+
+        modal.WaitForAssertion(() => Assert.Equal(2, modal.FindAll("button.comparison-card").Count));
+        modal.FindAll("button.comparison-card")[0].Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            var ranked = cut.FindAll("ol.ranked-list li");
+            Assert.Equal(2, ranked.Count);
+            Assert.Contains("Banana", ranked[0].TextContent);
+            Assert.Contains("Apple", ranked[1].TextContent);
         });
     }
 
