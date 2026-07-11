@@ -46,8 +46,8 @@ jobs:
         env:
           GHCR_PAT: ${{ secrets.GHCR_PAT }}
           IMAGE_TAG: ${{ vars.IMAGE_TAG }}
-          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
-          SSL_HOST: ${{ vars.SSL_HOST }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          SSL_HOST: ${{ secrets.SSL_HOST }}
           TRAEFIK_CERT_RESOLVER: ${{ vars.TRAEFIK_CERT_RESOLVER }}
           ALLOWED_EMAIL_1: ${{ secrets.ALLOWED_EMAIL_1 }}
           ALLOWED_EMAIL_2: ${{ secrets.ALLOWED_EMAIL_2 }}

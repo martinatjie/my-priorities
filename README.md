@@ -158,8 +158,10 @@ GitHub Actions **builds and deploys** the Docker image on push to `main`. It doe
 
 ### One-time in GitHub (Actions)
 
-GitHub distinguishes **secrets** (sensitive) from **variables** (non-sensitive config).  
+GitHub distinguishes **secrets** (sensitive, hidden) from **variables** (non-sensitive config).  
 Go to: **Repository → Settings → Secrets and variables → Actions**
+
+Hostnames are stored as **secrets** so your live site URL is not visible in the repo or in GitHub Variables. Forks use their own `DEPLOY_HOST` / `SSL_HOST` values.
 
 #### Secrets
 
@@ -169,6 +171,8 @@ Go to: **Repository → Settings → Secrets and variables → Actions**
 | `SERVER_IP` | Your server IP address |
 | `SERVER_USER` | SSH user (e.g. `deploy`) |
 | `SERVER_SSH_KEY` | Private SSH key for deploy user |
+| `DEPLOY_HOST` | Public hostname for this app (e.g. `priorities.example.com`) |
+| `SSL_HOST` | Root domain for Traefik STS header (e.g. `example.com`) |
 | `GOOGLE_CLIENT_ID` | Google OAuth client ID |
 | `GOOGLE_CLIENT_SECRET` | Google OAuth client secret |
 | `ALLOWED_EMAIL_1` | First allowed sign-in email |
@@ -181,11 +185,9 @@ Go to: **Repository → Settings → Secrets and variables → Actions**
 | Name | Example / notes |
 |------|-----------------|
 | `IMAGE_TAG` | Docker image tag to build and deploy (e.g. `2026.07.11.1`) — bump when releasing |
-| `DEPLOY_HOST` | Public hostname for this app (e.g. `priorities.example.com`) |
-| `SSL_HOST` | Root domain for Traefik STS header (e.g. `example.com`) |
 | `TRAEFIK_CERT_RESOLVER` | Traefik cert resolver name on your server (default in workflow: `mytlschallenge`) |
 
-These variables are substituted into `docker-compose-stack.yml` on the server during deploy.
+Secrets and variables are substituted into `docker-compose-stack.yml` on the server during deploy.
 
 ### One-time in Google Cloud Console
 
