@@ -43,20 +43,24 @@ public class PriorityAppService
         var newItem = new Item(Guid.NewGuid(), text.Trim());
         list.Items.Add(newItem);
 
-        if (!data.Settings.AutoPrioritizeOnAdd || list.RankedItemIds is null)
+        if (!data.Settings.AutoPrioritizeOnAdd)
         {
             Save(data);
             return;
         }
 
-        if (list.RankedItemIds.Count == 0)
+        // Auto-prioritize: place the new item into the current ranking.
+        // A never-prioritized list has a null ranking; GetRankedItems treats that as empty.
+        var existingRanking = RankingHelper.GetRankedItems(list).ToList();
+
+        if (existingRanking.Count == 0)
         {
+            // Nothing ranked yet, so the new item becomes the first ranked item (no comparison needed).
             list.RankedItemIds = [newItem.Id];
             Save(data);
             return;
         }
 
-        var existingRanking = RankingHelper.GetRankedItems(list).ToList();
         var result = await _prioritizationService.InsertIntoRankingAsync(
             existingRanking,
             newItem,

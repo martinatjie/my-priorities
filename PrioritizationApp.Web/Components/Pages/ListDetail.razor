@@ -24,6 +24,19 @@ else
         <div class="alert @(_messageIsWarning ? "alert-warning" : "alert-info")">@_message</div>
     }
 
+    <section class="card-panel">
+        <div class="form-row">
+            <input class="form-control" @bind="_newItemText" @bind:event="oninput"
+                   placeholder="Add an item" @onkeydown="AddOnEnter" />
+            <button class="btn btn-primary" @onclick="AddItem" disabled="@string.IsNullOrWhiteSpace(_newItemText)">Add</button>
+        </div>
+        <p class="text-muted auto-hint">
+            @(_data.Settings.AutoPrioritizeOnAdd
+                ? "Auto-prioritize is ON — new items are placed into the ranking as you add them."
+                : "Auto-prioritize is OFF — new items stay unprioritized until you run Prioritize.")
+        </p>
+    </section>
+
     @if (_showRerankConfirm)
     {
         <div class="card-panel warning-panel">
@@ -35,81 +48,69 @@ else
         </div>
     }
 
+    <section class="button-row">
+        <button class="btn btn-primary btn-lg" @onclick="StartPrioritize"
+                disabled="@(_list.Items.Count == 0)"
+                title="@PrioritizeTooltip">
+            Prioritize
+        </button>
+    </section>
+
     <section class="card-panel">
-        <h2>Items</h2>
-        @if (_list.Items.Count == 0)
+        <h2>Ranking</h2>
+        @if (_ranked.Count == 0 && _unprioritized.Count == 0)
         {
-            <p class="text-muted">No items yet.</p>
+            <p class="text-muted">No items yet. Add one above to get started.</p>
         }
         else
         {
-            <ul class="item-list">
-                @foreach (var item in _list.Items)
-                {
-                    <li>
-                        <span>@item.Text</span>
-                        <button class="btn btn-sm btn-outline-secondary" @onclick="() => BeginEdit(item)">Edit</button>
-                        <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteItem(item.Id)">Delete</button>
-                    </li>
-                }
-            </ul>
-        }
-
-        <div class="form-row">
-            <input class="form-control" @bind="_newItemText" placeholder="New item" />
-            <button class="btn btn-primary" @onclick="AddItem" disabled="@string.IsNullOrWhiteSpace(_newItemText)">Add</button>
-        </div>
-    </section>
-
-    <section class="button-row">
-        <button class="btn btn-primary btn-lg" @onclick="StartPrioritize">Prioritize</button>
-        <button class="btn btn-secondary" @onclick="() => _showRanking = !_showRanking">View ranking</button>
-    </section>
-
-    @if (_showRanking)
-    {
-        <section class="card-panel">
-            <h2>Ranking</h2>
-            @if (_list.RankedItemIds is null)
+            @if (_ranked.Count == 0)
             {
-                <p class="text-muted">No ranking yet — run Prioritize.</p>
+                <p class="text-muted">Nothing ranked yet — add items or run Prioritize.</p>
             }
             else
             {
-                var ranked = RankingHelper.GetRankedItems(_list);
-                var unprioritized = RankingHelper.GetUnprioritizedItems(_list);
-
-                @if (ranked.Count > 0)
-                {
-                    <ol>
-                        @foreach (var item in ranked)
-                        {
-                            <li>@item.Text</li>
-                        }
-                    </ol>
-                }
-
-                @if (unprioritized.Count > 0)
-                {
-                    <h3>Unprioritized</h3>
-                    <ul>
-                        @foreach (var item in unprioritized)
-                        {
-                            <li>@item.Text</li>
-                        }
-                    </ul>
-                }
+                <ol class="ranked-list">
+                    @foreach (var item in _ranked)
+                    {
+                        <li>
+                            <span class="item-text">@item.Text</span>
+                            <span class="item-actions">
+                                <button class="btn btn-sm btn-outline-secondary" @onclick="() => BeginEdit(item)">Edit</button>
+                                <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteItem(item.Id)">Delete</button>
+                            </span>
+                        </li>
+                    }
+                </ol>
             }
-        </section>
-    }
+
+            @if (_unprioritized.Count > 0)
+            {
+                <h3 class="unprioritized-heading">Not yet prioritized</h3>
+                <p class="text-muted">Run Prioritize to place these into the ranking.</p>
+                <ul class="item-list">
+                    @foreach (var item in _unprioritized)
+                    {
+                        <li>
+                            <span class="item-text">@item.Text</span>
+                            <span class="item-actions">
+                                <button class="btn btn-sm btn-outline-secondary" @onclick="() => BeginEdit(item)">Edit</button>
+                                <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteItem(item.Id)">Delete</button>
+                            </span>
+                        </li>
+                    }
+                </ul>
+            }
+        }
+    </section>
 
     @if (_editingItemId is Guid editId)
     {
         <section class="card-panel">
             <h2>Edit item</h2>
             <div class="form-row">
-                <input class="form-control" @bind="_editText" />
-                <button class="btn btn-primary" @onclick="SaveEdit">Save</button>
+                <input class="form-control" @bind="_editText" @bind:event="oninput" />
+                <button class="btn btn-primary" @onclick="SaveEdit" disabled="@string.IsNullOrWhiteSpace(_editText)">Save</button>
                 <button class="btn btn-secondary" @onclick="CancelEdit">Cancel</button>
             </div>
         </section>
@@ -119,20 +120,22 @@ else
 @code {
     [Parameter] public Guid ListId { get; set; }
 
+    private const string PrioritizeTooltip =
+        "Two scenarios: (1) If some items aren't ranked yet, Prioritize places just those into the existing ranking. " +
+        "(2) If every item is already ranked, Prioritize asks you to confirm, then re-ranks the whole list from scratch.";
+
     private AppData _data = new();
     private PriorityList? _list;
+    private IReadOnlyList<Item> _ranked = [];
+    private IReadOnlyList<Item> _unprioritized = [];
     private string _newItemText = "";
     private string? _message;
     private bool _messageIsWarning;
-    private bool _showRanking;
     private bool _showRerankConfirm;
     private Guid? _editingItemId;
     private string _editText = "";
 
-    protected override void OnInitialized()
-    {
-        Reload();
-    }
+    protected override void OnInitialized() => Reload();
 
     protected override void OnParametersSet() => Reload();
 
@@ -140,6 +143,26 @@ else
     {
         _data = AppService.Load();
         _list = AppService.GetList(_data, ListId);
+        RefreshViews();
+    }
+
+    private void RefreshViews()
+    {
+        if (_list is null)
+        {
+            _ranked = [];
+            _unprioritized = [];
+            return;
+        }
+
+        _ranked = RankingHelper.GetRankedItems(_list);
+        _unprioritized = RankingHelper.GetUnprioritizedItems(_list);
+    }
+
+    private async Task AddOnEnter(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+            await AddItem();
     }
 
     private async Task AddItem()
@@ -221,6 +244,5 @@ else
         _message = result;
         _messageIsWarning = result.Contains("cancelled", StringComparison.OrdinalIgnoreCase);
         Reload();
-        _showRanking = true;
     }
 }
