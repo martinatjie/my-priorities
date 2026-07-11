@@ -42,14 +42,14 @@ else
         <div class="card-panel warning-panel">
             <p>This list is already fully prioritized. Running Prioritize again will re-rank <strong>all</strong> items from scratch.</p>
             <div class="button-row">
-                <button class="btn btn-danger" @onclick="ConfirmPrioritize">Continue</button>
+                <button class="btn btn-danger" @onclick="ConfirmPrioritizeAsync">Continue</button>
                 <button class="btn btn-secondary" @onclick="() => _showRerankConfirm = false">Cancel</button>
             </div>
         </div>
     }
 
     <section class="button-row">
-        <button class="btn btn-primary btn-lg" @onclick="StartPrioritize"
+        <button class="btn btn-primary btn-lg" @onclick="StartPrioritizeAsync"
                 disabled="@(_list.Items.Count == 0)"
                 title="@PrioritizeTooltip">
             Prioritize
@@ -212,7 +212,7 @@ else
         Reload();
     }
 
-    private void StartPrioritize()
+    private async Task StartPrioritizeAsync()
     {
         if (_list is null)
             return;
@@ -223,10 +223,10 @@ else
             return;
         }
 
-        _ = RunPrioritizeAsync(false);
+        await RunPrioritizeAsync(false);
     }
 
-    private void ConfirmPrioritize() => _ = RunPrioritizeAsync(true);
+    private async Task ConfirmPrioritizeAsync() => await RunPrioritizeAsync(true);
 
     private async Task RunPrioritizeAsync(bool confirmFullRerank)
     {
@@ -244,5 +244,6 @@ else
         _message = result;
         _messageIsWarning = result.Contains("cancelled", StringComparison.OrdinalIgnoreCase);
         Reload();
+        await InvokeAsync(StateHasChanged);
     }
 }
