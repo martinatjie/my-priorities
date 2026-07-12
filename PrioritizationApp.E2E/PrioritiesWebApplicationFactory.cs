@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Configuration.Memory;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -26,9 +27,12 @@ public sealed class PrioritiesWebApplicationFactory : WebApplicationFactory<Prog
         builder.UseEnvironment("Development");
         builder.ConfigureAppConfiguration((_, config) =>
         {
-            config.AddInMemoryCollection(new Dictionary<string, string?>
+            config.Sources.Add(new MemoryConfigurationSource
             {
-                ["Storage:DataDirectory"] = _dataDirectory
+                InitialData = new Dictionary<string, string?>
+                {
+                    ["Storage:DataDirectory"] = _dataDirectory
+                }
             });
         });
     }
@@ -40,9 +44,12 @@ public sealed class PrioritiesWebApplicationFactory : WebApplicationFactory<Prog
 
         builder.ConfigureAppConfiguration((_, config) =>
         {
-            config.AddInMemoryCollection(new Dictionary<string, string?>
+            config.Sources.Add(new MemoryConfigurationSource
             {
-                ["Storage:DataDirectory"] = infrastructureDirectory
+                InitialData = new Dictionary<string, string?>
+                {
+                    ["Storage:DataDirectory"] = infrastructureDirectory
+                }
             });
         });
 
@@ -51,9 +58,12 @@ public sealed class PrioritiesWebApplicationFactory : WebApplicationFactory<Prog
         builder.ConfigureWebHost(webHostBuilder => webHostBuilder.UseKestrel());
         builder.ConfigureAppConfiguration((_, config) =>
         {
-            config.AddInMemoryCollection(new Dictionary<string, string?>
+            config.Sources.Add(new MemoryConfigurationSource
             {
-                ["Storage:DataDirectory"] = _dataDirectory
+                InitialData = new Dictionary<string, string?>
+                {
+                    ["Storage:DataDirectory"] = _dataDirectory
+                }
             });
         });
 
