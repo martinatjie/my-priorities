@@ -4,4 +4,5 @@
   <Project Path="PrioritizationApp.Tests/PrioritizationApp.Tests.csproj" />
   <Project Path="PrioritizationApp.Web/PrioritizationApp.Web.csproj" />
   <Project Path="PrioritizationApp.Web.Tests/PrioritizationApp.Web.Tests.csproj" />
+  <Project Path="PrioritizationApp.E2E/PrioritizationApp.E2E.csproj" />
 </Solution>

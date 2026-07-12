@@ -28,4 +28,30 @@ jobs:
         run: dotnet build PrioritizationApp.sln --no-restore --configuration Release
 
       - name: Test
-        run: dotnet test PrioritizationApp.sln --no-build --configuration Release --verbosity normal
+        run: dotnet test PrioritizationApp.sln --no-build --configuration Release --verbosity normal --filter "FullyQualifiedName!~PrioritizationApp.E2E"
+
+  e2e:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            9.0.x
+
+      - name: Restore
+        run: dotnet restore PrioritizationApp.E2E/PrioritizationApp.E2E.csproj
+
+      - name: Build E2E
+        run: dotnet build PrioritizationApp.E2E/PrioritizationApp.E2E.csproj --no-restore --configuration Release
+
+      - name: Install Playwright browsers
+        run: pwsh PrioritizationApp.E2E/bin/Release/net9.0/playwright.ps1 install chromium --with-deps
+
+      - name: E2E Test
+        run: dotnet test PrioritizationApp.E2E/PrioritizationApp.E2E.csproj --no-build --configuration Release --verbosity normal
