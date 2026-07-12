@@ -8,11 +8,14 @@ public sealed class PlaywrightAppFixture : IAsyncLifetime
     public PrioritiesWebApplicationFactory Factory { get; private set; } = null!;
     public IPlaywright Playwright { get; private set; } = null!;
     public IBrowser Browser { get; private set; } = null!;
+    public string BaseUrl { get; private set; } = "";
 
     public async Task InitializeAsync()
     {
         Factory = new PrioritiesWebApplicationFactory();
         _ = Factory.CreateClient();
+        BaseUrl = Factory.ServerAddress;
+
         Playwright = await Microsoft.Playwright.Playwright.CreateAsync();
         Browser = await Playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions { Headless = true });
     }
@@ -25,6 +28,4 @@ public sealed class PlaywrightAppFixture : IAsyncLifetime
         if (Factory is not null)
             await Factory.DisposeAsync();
     }
-
-    public string BaseUrl => Factory.ServerAddress;
 }

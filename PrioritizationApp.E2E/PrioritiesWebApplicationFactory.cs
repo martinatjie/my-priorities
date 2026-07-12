@@ -35,9 +35,28 @@ public sealed class PrioritiesWebApplicationFactory : WebApplicationFactory<Prog
 
     protected override IHost CreateHost(IHostBuilder builder)
     {
+        var infrastructureDirectory = Path.Combine(_dataDirectory, "infrastructure");
+        Directory.CreateDirectory(infrastructureDirectory);
+
+        builder.ConfigureAppConfiguration((_, config) =>
+        {
+            config.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Storage:DataDirectory"] = infrastructureDirectory
+            });
+        });
+
         var testHost = builder.Build();
 
         builder.ConfigureWebHost(webHostBuilder => webHostBuilder.UseKestrel());
+        builder.ConfigureAppConfiguration((_, config) =>
+        {
+            config.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Storage:DataDirectory"] = _dataDirectory
+            });
+        });
+
         _kestrelHost = builder.Build();
         _kestrelHost.Start();
 
